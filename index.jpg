@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Vice City Life</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101820;color:white;font-family:Arial;overflow:hidden}
+header{height:55px;background:#111827;display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+h1{font-size:19px;color:#ffd166;margin:0}
+#money{color:#55efc4;font-weight:bold}
+canvas{display:block;width:100vw;height:calc(100dvh - 55px);touch-action:none}
+#controls{position:fixed;bottom:20px;left:0;right:0;display:flex;justify-content:space-between;padding:0 20px;pointer-events:none}
+.pad{display:grid;grid-template-columns:55px 55px 55px;grid-template-rows:55px 55px 55px;gap:5px;pointer-events:auto}
+button{border:1px solid #ffffff66;background:#111d;color:white;border-radius:13px;font-size:23px;touch-action:none}
+#up{grid-column:2}#left{grid-column:1;grid-row:2}#down{grid-column:2;grid-row:2}#right{grid-column:3;grid-row:2}
+#info{position:fixed;top:65px;left:10px;background:#101820bb;padding:9px;border-radius:8px;font-size:12px}
+#mission{position:fixed;top:65px;right:10px;background:#101820dd;padding:9px;border-radius:8px;font-size:12px}
+</style>
+</head>
+<body>
+<header><h1>🌴 VICE CITY LIFE</h1><span id="money">💵 $500</span></header>
+<canvas id="game"></canvas>
+<div id="info">🚗 Explore the city<br>Use controls to drive</div>
+<div id="mission">📦 Find the green marker!</div>
+<div id="controls">
+ <div class="pad">
+  <button id="up">⬆️</button><button id="left">⬅️</button>
+  <button id="down">⬇️</button><button id="right">➡️</button>
+ </div>
+ <button id="collect" style="width:90px;height:65px;font-size:14px">COLLECT<br>💰</button>
+</div>
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+let W=0,H=0;
+function resize(){W=canvas.width=innerWidth*devicePixelRatio;H=canvas.height=(innerHeight-55)*devicePixelRatio}
+resize();addEventListener("resize",resize);
+const world={w:2400,h:1800};
+let player={x:400,y:400,a:0,speed:0};
+let money=500,mission={x:850,y:500};
+let keys={};
+const colors=["#e76f51","#00b4d8","#f4a261","#a29bfe","#55efc4"];
+let buildings=[];
+for(let y=100;y<world.h;y+=260)for(let x=100;x<world.w;x+=300){
+ buildings.push({x:x+Math.random()*35,y:y+Math.random()*35,w:130+Math.random()*70,h:100+Math.random()*70,c:colors[Math.floor(Math.random()*colors.length)]});
+}
+function button(id,key){
+ const el=document.getElementById(id);
+ el.addEventListener("pointerdown",e=>{e.preventDefault();keys[key]=true;el.setPointerCapture(e.pointerId)});
+ el.addEventListener("pointerup",()=>keys[key]=false);
+ el.addEventListener("pointercancel",()=>keys[key]=false);
+ el.addEventListener("lostpointercapture",()=>keys[key]=false);
+}
+button("up","up");button("down","down");button("left","left");button("right","right");
+document.getElementById("collect").addEventListener("click",()=>{
+ if(Math.hypot(player.x-mission.x,player.y-mission.y)<100){
+ money+=250;document.getElementById("money").textContent="💵 $"+money;
+ mission={x:150+Math.random()*2100,y:150+Math.random()*1500};
+ document.getElementById("mission").textContent="📦 New delivery marker!";
+ }else document.getElementById("mission").textContent="📦 Drive closer to the green marker!";
+});
+function drawCar(x,y,a){
+ ctx.save();ctx.translate(x,y);ctx.rotate(a);
+ ctx.fillStyle="#111";ctx.fillRect(-19,-12,38,24);
+ ctx.fillStyle="#f7c948";ctx.fillRect(-13,-10,25,20);
+ ctx.fillStyle="#83d9ff";ctx.fillRect(-7,-8,13,16);
+ ctx.fillStyle="#fff";ctx.fillRect(12,-8,5,5);ctx.fillRect(12,4,5,5);
+ ctx.restore();
+}
+function loop(){
+ const scale=devicePixelRatio;
+ if(keys.up)player.speed=Math.min(player.speed+0.16,5);
+ if(keys.down)player.speed=Math.max(player.speed-0.16,-2.5);
+ player.speed*=0.985;
+ if(keys.left)player.a-=0.045*(Math.abs(player.speed)+0.5)/3;
+ if(keys.right)player.a+=0.045*(Math.abs(player.speed)+0.5)/3;
+ player.x+=Math.cos(player.a)*player.speed;
+ player.y+=Math.sin(player.a)*player.speed;
+ player.x=Math.max(25,Math.min(world.w-25,player.x));
+ player.y=Math.max(25,Math.min(world.h-25,player.y));
+ const camX=player.x-W/scale/2,camY=player.y-H/scale/2;
+ ctx.setTransform(scale,0,0,scale,0,0);
+ ctx.fillStyle="#32734b";ctx.fillRect(0,0,W/scale,H/scale);
+ ctx.save();ctx.translate(-camX,-camY);
+ // roads
+ ctx.fillStyle="#343b46";
+ for(let x=0;x<world.w;x+=300)ctx.fillRect(x-45,0,90,world.h);
+ for(let y=0;y<world.h;y+=260)ctx.fillRect(0,y-45,world.w,90);
+ ctx.strokeStyle="#e7d18b";ctx.setLineDash([22,22]);ctx.lineWidth=3;
+ for(let x=0;x<world.w;x+=300){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,world.h);ctx.stroke()}
+ for(let y=0;y<world.h;y+=260){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(world.w,y);ctx.stroke()}
+ ctx.setLineDash([]);
+ // beach and sea
+ ctx.fillStyle="#f3d69a";ctx.fillRect(0,world.h-180,world.w,180);
+ ctx.fillStyle="#26a6c8";ctx.fillRect(0,world.h-70,world.w,70);
+ // buildings
+ for(const b of buildings){
+ ctx.fillStyle="#18232d";ctx.fillRect(b.x+6,b.y+7,b.w,b.h);
+ ctx.fillStyle=b.c;ctx.fillRect(b.x,b.y,b.w,b.h);
+ ctx.fillStyle="#ffffff55";
+ for(let wx=b.x+15;wx<b.x+b.w-10;wx+=28)
+ for(let wy=b.y+15;wy<b.y+b.h-10;wy+=28)ctx.fillRect(wx,wy,12,12);
+ }
+ // marker
+ ctx.fillStyle="#55ef9f";ctx.beginPath();ctx.arc(mission.x,mission.y,22,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle="white";ctx.font="bold 14px Arial";ctx.fillText("£",mission.x-5,mission.y+5);
+ drawCar(player.x,player.y,player.a);
+ ctx.restore();
+ requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
